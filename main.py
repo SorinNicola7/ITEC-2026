@@ -12,7 +12,7 @@ from pydantic import BaseModel
 
 # --- Inițializează noul client Gemini (sub importuri) ---
 # Atenție: În mod normal, API key-ul se ține în .env, dar pentru hackathon îl lăsăm așa
-gemini_client = genai.Client(api_key="AIzaSyCpzy1PFW76ya7BYthlKaHg3cB7qNLMhrY")
+gemini_client = genai.Client(api_key="AIzaSyD_EMqyDuUYs2pbQ93ceMPvt5JWVJEDKjo")
 # Importăm baza de date
 from database import SessionLocal, User, engine, Base
 
@@ -323,9 +323,10 @@ async def generate_ai_code(payload: AIPayload):
         2. Nu folosi formatare markdown (fără ```python la început sau ``` la final). Doar raw code.
         """
 
+
         # Generăm codul asincron folosind noul client (aio = async io)
         response = await gemini_client.aio.models.generate_content(
-            model='gemini-1.5-flash',
+            model='gemini-2.5-flash',
             contents=system_prompt
         )
 
