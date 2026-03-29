@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WORKSPACE - iTECify</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .resizer { background-color: #374151; transition: background-color 0.2s ease; z-index: 10; }
+        .resizer-x { width: 4px; cursor: col-resize; }
+        .resizer-y { height: 4px; cursor: row-resize; }
+        .resizer:hover, .resizer.active { background-color: #c1b3b3; }
+        .no-select { user-select: none; }
+        .panel-label { display: flex; align-items: center; padding: 0.5rem 0.75rem; font-weight: 800; font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 1px solid #374151; }
+        .tab-active { border-bottom: 2px solid #22c55e; color: #22c55e; }
+        .hidden { display: none; }
+
+        /* Cursor Styling de baza */
+        /* Cursor Styling de baza */
+        .yRemoteSelectionHead {
+            position: absolute;
+            height: 100% !important;
+            min-height: 19px !important; /* FORȚĂM înălțimea pe liniile goale */
+            min-width: 2px !important;   /* FORȚĂM lățimea pe liniile goale */
+            box-sizing: border-box;
+            z-index: 9999 !important;
+            display: block !important;
+        }
+        /* Când utilizatorul selectează un text lung */
+        .yRemoteSelection {
+            z-index: 10;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-300 h-screen flex overflow-hidden font-sans">
+
+    <aside id="panel-left" class="w-64 bg-gray-800 flex flex-col shrink-0 min-w-[150px]">
+        <div class="panel-label bg-gray-900 text-blue-400 border-l-4 border-l-blue-500">
+            <span class="mr-2">📁</span> FILE EXPLORER
+        </div>
+        <div class="p-3 flex-1 overflow-y-auto">
+            <p class="text-sm text-gray-500">📄 main.py</p>
+        </div>
+        <div class="p-3 bg-gray-900 border-t border-gray-700 mt-auto">
+            <p class="text-xs text-gray-400 mb-2">Logged in as: <span class="text-white font-bold" id="current-username">{{ username }}</span></p>
+            <a href="/logout" class="block w-full text-center bg-red-600 hover:bg-red-700 text-white text-xs font-bold py-2 rounded transition">LOGOUT</a>
+        </div>
+    </aside>
+
+    <div id="resizer-left" class="resizer resizer-x shrink-0"></div>
+
+    <main class="flex-1 flex flex-col min-w-[200px]">
+        <div id="panel-editor" class="flex-1 flex flex-col bg-gray-950 min-h-[100px] relative">
+            <div class="panel-label bg-gray-900 text-yellow-400 border-l-4 border-l-yellow-500 flex justify-between items-center">
+                <span>CODE EDITOR (main.py)</span>
+                <span id="sync-status" class="text-xs text-red-500 font-bold px-2 py-1 rounded bg-red-900/30">🔴 Offline</span>
+            </div>
+            <div id="monaco-container" class="flex-1 w-full h-full"></div>
+        </div>
+
+        <div id="resizer-bottom" class="resizer resizer-y shrink-0"></div>
+
+        <div id="panel-terminal" class="h-48 flex flex-col bg-black min-h-[50px]">
+            <div class="flex bg-gray-900 border-b border-gray-800 justify-between items-center pr-2">
+                <div class="flex">
+                    <button onclick="switchTerminal('command')" id="btn-command" class="px-4 py-2 text-xs font-bold uppercase tracking-widest text-green-400 border-l-4 border-l-green-500 tab-active">>_ Terminal</button>
+                    <button onclick="switchTerminal('output')" id="btn-output" class="px-4 py-2 text-xs font-bold uppercase tracking-widest text-gray-500 hover:text-white transition">[ ] Output</button>
+                </div>
+                <button id="btn-ai" class="bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold px-3 py-1 rounded transition">
+                        ✨ ASK ANA (AI)
+                    </button>
+                <button id="btn-run" class="bg-green-600 hover:bg-green-500 text-white text-xs font-bold px-3 py-1 rounded transition">▶ RUN CODE</button>
+            </div>
+            <div id="tab-command" class="flex-1 flex flex-col p-2 font-mono text-sm">
+                <div class="flex items-center border-t border-gray-800 pt-2">
+                    <span class="text-green-500 mr-2">hacker@itecify:~$</span>
+                    <input type="text" id="terminal-input" class="flex-1 bg-transparent outline-none border-none text-gray-300" placeholder="Type command...">
+                </div>
+            </div>
+            <div id="tab-output" class="flex-1 hidden p-3 font-mono text-sm text-gray-300 overflow-y-auto">
+                <pre id="output-content" class="whitespace-pre-wrap">Aștept execuție cod...</pre>
+            </div>
+        </div>
+    </main>
+
+    <div id="resizer-right" class="resizer resizer-x shrink-0"></div>
+
+    <aside id="panel-right" class="w-80 bg-gray-800 flex flex-col shrink-0 min-w-[200px]">
+        <div class="panel-label bg-gray-900 text-purple-400 border-l-4 border-l-purple-500">
+            <span class="mr-2">💬</span> LIVE CHAT
+        </div>
+        <div class="flex-1 p-3 overflow-y-auto" id="chat-messages">
+            <div class="mb-2">
+                <span class="text-purple-400 font-bold text-xs">System:</span>
+                <span class="text-gray-300 text-sm">Welcome to the co-op room!</span>
+            </div>
+        </div>
+        <div class="p-3 bg-gray-900 border-t border-gray-700 text-center">
+            <input id="chat-input" type="text" placeholder="Type a message & press Enter..." class="w-full bg-gray-800 border border-gray-700 rounded p-2 text-sm focus:outline-none focus:border-purple-500 text-white">
+        </div>
+    </aside>
+
+    <script>
+        function switchTerminal(mode) {
+            const tabCmd = document.getElementById('tab-command'); const tabOut = document.getElementById('tab-output');
+            const btnCmd = document.getElementById('btn-command'); const btnOut = document.getElementById('btn-output');
+            if (mode === 'command') {
+                tabCmd.classList.remove('hidden'); tabOut.classList.add('hidden');
+                btnCmd.classList.add('tab-active', 'text-green-400', 'border-l-green-500');
+                btnOut.classList.remove('tab-active', 'text-white', 'border-l-4', 'border-l-blue-400'); btnOut.classList.add('text-gray-500');
+            } else {
+                tabOut.classList.remove('hidden'); tabCmd.classList.add('hidden');
+                btnOut.classList.add('tab-active', 'text-white', 'border-l-4', 'border-l-blue-400');
+                btnCmd.classList.remove('tab-active', 'text-green-400', 'border-l-green-500'); btnCmd.classList.add('text-gray-500');
+            }
+        }
+        function setupResizer(resizerId, panelId, direction) {
+            const resizer = document.getElementById(resizerId); const panel = document.getElementById(panelId); let isResizing = false;
+            resizer.addEventListener('mousedown', () => { isResizing = true; resizer.classList.add('active'); document.body.classList.add('no-select'); });
+            document.addEventListener('mousemove', (e) => {
+                if (!isResizing) return;
+                if (direction === 'left') { let newWidth = e.clientX; if (newWidth > 150 && newWidth < window.innerWidth - 400) panel.style.width = newWidth + 'px'; }
+                else if (direction === 'right') { let newWidth = window.innerWidth - e.clientX; if (newWidth > 200 && newWidth < window.innerWidth - 400) panel.style.width = newWidth + 'px'; }
+                else if (direction === 'bottom') { let newHeight = window.innerHeight - e.clientY; if (newHeight > 50 && newHeight < window.innerHeight - 100) panel.style.height = newHeight + 'px'; if(window.monacoEditor) window.monacoEditor.layout(); }
+            });
+            document.addEventListener('mouseup', () => { isResizing = false; resizer.classList.remove('active'); document.body.classList.remove('no-select'); });
+        }
+        setupResizer('resizer-left', 'panel-left', 'left'); setupResizer('resizer-right', 'panel-right', 'right'); setupResizer('resizer-bottom', 'panel-terminal', 'bottom');
+    </script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js"></script>
+    <script type="module">
+        import * as Y from 'https://esm.sh/yjs@13.6.1';
+        import { WebsocketProvider } from 'https://esm.sh/y-websocket@1.5.0';
+        import { MonacoBinding } from 'https://esm.sh/y-monaco@0.1.5';
+
+        const username = document.getElementById('current-username').innerText || "Anonim_" + Math.floor(Math.random()*100);
+        const randomColor = '#' + Math.floor(Math.random()*16777215).toString(16);
+
+        // ==========================================
+        // 1. CHAT WEBSOCKET
+        // ==========================================
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const chatSocket = new WebSocket(`${wsProtocol}//${window.location.host}/ws/chat`);
+        const chatMessages = document.getElementById('chat-messages');
+        const chatInput = document.getElementById('chat-input');
+
+        chatSocket.onmessage = function(event) {
+            const msgData = JSON.parse(event.data);
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'mb-2';
+            msgDiv.innerHTML = `<span class="text-purple-400 font-bold text-xs">${msgData.user}:</span> <span class="text-gray-300 text-sm">${msgData.text}</span>`;
+            chatMessages.appendChild(msgDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        };
+
+        chatInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && chatInput.value.trim() !== '') {
+                chatSocket.send(JSON.stringify({ user: username, text: chatInput.value.trim() }));
+                chatInput.value = '';
+            }
+        });
+
+        // ==========================================
+        // 2. MONACO EDITOR + YJS (Colaborare Cod)
+        // ==========================================
+        // ==========================================
+        // 2. MONACO EDITOR + YJS (Colaborare Cod)
+        // ==========================================
+        require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.38.0/min/vs' }});
+        require(['vs/editor/editor.main'], function() {
+            window.monacoEditor = monaco.editor.create(document.getElementById('monaco-container'), {
+                value: "",
+                language: 'python',
+                theme: 'vs-dark',
+                automaticLayout: true,
+                fontSize: 14,
+                minimap: { enabled: false }
+            });
+
+            const ydoc = new Y.Doc();
+
+            // FIX: Adăugat o cameră specifică pentru a evita erorile 404
+            // Înlocuiește cu asta (CORECT):
+            const wsUrl = `${wsProtocol}//${window.location.host}/ws/code`;
+            const provider = new WebsocketProvider(wsUrl, 'itec2026-room', ydoc);
+
+            provider.on('status', event => {
+                const statusEl = document.getElementById('sync-status');
+                if(event.status === 'connected') {
+                    statusEl.innerText = "🟢 LIVE (Collab)";
+                    statusEl.className = "text-xs text-green-400 font-bold px-2 py-1 rounded bg-green-900/30";
+                } else {
+                    statusEl.innerText = "🔴 Offline";
+                    statusEl.className = "text-xs text-red-500 font-bold px-2 py-1 rounded bg-red-900/30";
+                }
+            });
+
+            const type = ydoc.getText('monaco');
+            const binding = new MonacoBinding(type, window.monacoEditor.getModel(), new Set([window.monacoEditor]), provider.awareness);
+            provider.awareness.setLocalStateField('user', { name: username, color: randomColor });
+
+            window.monacoEditor.onDidChangeCursorPosition(() => {
+                provider.awareness.setLocalStateField('user', { name: username, color: randomColor });
+            });
+
+            // ==========================================
+            // 3. TERMINAL COMUN (Shared Output WebSocket)
+            // ==========================================
+            const outputContent = document.getElementById('output-content');
+            const terminalWsUrl = `${wsProtocol}//${window.location.host}/ws/terminal`;
+            const terminalSocket = new WebSocket(terminalWsUrl);
+
+            terminalSocket.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                switchTerminal('output'); // Schimbăm tab-ul automat pe Output pt toți
+
+                // Colorăm în funcție de tipul mesajului
+                if(data.type === "error") outputContent.className = "whitespace-pre-wrap text-red-500";
+                else if(data.type === "success") outputContent.className = "whitespace-pre-wrap text-green-400";
+                else outputContent.className = "whitespace-pre-wrap text-yellow-400";
+
+                outputContent.innerText = data.text;
+            };
+
+            const btnRun = document.getElementById('btn-run');
+            btnRun.addEventListener('click', async () => {
+                const currentCode = window.monacoEditor.getValue();
+                // Doar declanșăm execuția, rezultatul vine prin WebSocket pentru toți
+                await fetch('/run', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code: currentCode })
+                });
+            });
+
+            // ==========================================
+            // 4. LOGICA AGENTULUI AI (ANA) - Block Review
+            // ==========================================
+            const btnAi = document.getElementById('btn-ai');
+            btnAi.addEventListener('click', async () => {
+                const userPrompt = prompt("🤖 Ce vrei să programeze Ana?");
+                if (!userPrompt) return;
+
+                const currentCode = window.monacoEditor.getValue();
+                const position = window.monacoEditor.getPosition();
+
+                const originalText = btnAi.innerText;
+                btnAi.innerText = "⏳ ANA SCRIE...";
+                btnAi.disabled = true;
+                btnAi.classList.replace('bg-purple-600', 'bg-purple-800');
+
+                try {
+                    const response = await fetch('/api/ai/generate', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ prompt: userPrompt, context_code: currentCode })
+                    });
+                    const data = await response.json();
+
+                    if(data.error) {
+                        alert(data.error);
+                    } else {
+                        // AI BLOCK-EDITOR LOGIC: Cerem confirmarea înainte de a insera
+                        const accept = confirm(`✨ Ana a generat următorul cod:\n\n${data.code}\n\nEști de acord să îl inserezi în proiect?`);
+
+                        if (accept) {
+                            const insertText = `\n# --- 🤖 Ana AI --- \n${data.code}\n# ----------------- \n`;
+                            window.monacoEditor.executeEdits("AI-Agent-Ana", [{
+                                range: new monaco.Range(position.lineNumber, position.column, position.lineNumber, position.column),
+                                text: insertText,
+                                forceMoveMarkers: true
+                            }]);
+                            window.monacoEditor.focus();
+                        }
+                    }
+                } catch (error) {
+                    alert("❌ Nu am putut contacta serverul AI.");
+                } finally {
+                    btnAi.innerText = originalText;
+                    btnAi.disabled = false;
+                    btnAi.classList.replace('bg-purple-800', 'bg-purple-600');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
